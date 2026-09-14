@@ -1,11 +1,12 @@
 {
   "name": "shoco-telegram-whatsapp-bot",
-  "version": "1.0.0",
-  "description": "Telegram bot dengan sistem pairing WhatsApp (Baileys) per-user",
+  "version": "1.1.0",
+  "description": "Telegram bot with per-user WhatsApp pairing and an authenticated companion API",
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test"
   },
   "dependencies": {
     "@grammyjs/runner": "^2.0.3",

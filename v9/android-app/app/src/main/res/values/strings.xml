@@ -1,0 +1,36 @@
+<resources>
+    <string name="app_name">SHOCO Control</string>
+    <string name="eyebrow">PRIVATE COMPANION</string>
+    <string name="title">Bot control</string>
+    <string name="subtitle">A read-first dashboard for your Pterodactyl bot.</string>
+    <string name="server_settings">SERVER SETTINGS</string>
+    <string name="api_url">HTTPS API URL</string>
+    <string name="api_url_hint">https://control.example.com</string>
+    <string name="api_token">ACCESS TOKEN</string>
+    <string name="token_hint">Paste the 32+ character token</string>
+    <string name="token_saved_hint">Saved securely — leave blank to keep</string>
+    <string name="save_connect">SAVE &amp; CONNECT</string>
+    <string name="status">LIVE STATUS</string>
+    <string name="not_connected">Not connected</string>
+    <string name="telegram">TELEGRAM</string>
+    <string name="users">USERS</string>
+    <string name="whatsapp">WHATSAPP</string>
+    <string name="sub_bots">SUB-BOTS</string>
+    <string name="uptime">UPTIME</string>
+    <string name="unknown">—</string>
+    <string name="sessions">SESSIONS</string>
+    <string name="no_sessions">No saved WhatsApp sessions.</string>
+    <string name="refresh">REFRESH STATUS</string>
+    <string name="reconnect">RECONNECT OFFLINE</string>
+    <string name="safety_note">This app cannot invoke mass-message, crash, flood, or destructive commands.</string>
+    <string name="https_required">Use an HTTPS server address.</string>
+    <string name="token_too_short">The access token must contain at least 32 characters.</string>
+    <string name="configure_first">Enter the HTTPS API URL and access token first.</string>
+    <string name="connecting">Connecting…</string>
+    <string name="reconnecting">Requesting a safe reconnect…</string>
+    <string name="reconnect_started">Reconnect requested.</string>
+    <string name="connection_failed">Could not connect to the server.</string>
+    <string name="offline">Offline</string>
+    <string name="session_summary">%1$d / %2$d online</string>
+    <string name="connected_at">Connected · server time %1$s UTC</string>
+</resources>

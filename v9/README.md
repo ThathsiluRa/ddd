@@ -114,9 +114,29 @@ Copy `.env.example` to `.env`, fill in the values, and keep the file private. Do
 
 Back up both folders before reinstalling or changing servers.
 
+## Android companion control
+
+The optional native Android client lives in `android-app/`. It connects to a
+small authenticated API in this Node process. Set `CONTROL_API_ENABLED=true`,
+configure a unique 32+ character `CONTROL_API_TOKEN`, assign
+`CONTROL_API_PORT` in Pterodactyl, and publish the port behind valid HTTPS.
+
+The app intentionally supports only status viewing and reconnecting known
+disconnected sessions. Full numbers are masked, tokens are never returned, and
+legacy crash, flood, mass-message, destructive, and arbitrary-command features
+are not available through the API. See `android-app/README.md` for build and
+connection instructions.
+
+Run the security helper tests with:
+
+```bash
+npm test
+```
+
 ## Important changes in this fixed build
 
 - Uses the published `baileys` package instead of the unavailable original dependency path.
 - Removes unused packages that could not be installed from the registry.
 - Handles empty optional menu media without crashing.
 - Unsafe WhatsApp mass-messaging/crash payload actions are disabled.
+- Adds an opt-in authenticated, rate-limited Android companion API.
