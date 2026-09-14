@@ -17,16 +17,19 @@ class MainActivity : Activity() {
     private lateinit var preferences: SecurePreferences
     private lateinit var apiUrlInput: EditText
     private lateinit var tokenInput: EditText
+    private lateinit var phoneInput: EditText
+    private lateinit var pairingCode: TextView
     private lateinit var connectionLabel: TextView
-    private lateinit var telegramValue: TextView
-    private lateinit var usersValue: TextView
+    private lateinit var serverValue: TextView
+    private lateinit var modeValue: TextView
     private lateinit var sessionsValue: TextView
-    private lateinit var subBotsValue: TextView
+    private lateinit var apiValue: TextView
     private lateinit var uptimeValue: TextView
     private lateinit var sessionList: TextView
     private lateinit var saveButton: Button
     private lateinit var refreshButton: Button
     private lateinit var reconnectButton: Button
+    private lateinit var pairButton: Button
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -49,6 +52,7 @@ class MainActivity : Activity() {
         saveButton.setOnClickListener { saveAndConnect() }
         refreshButton.setOnClickListener { refreshStatus() }
         reconnectButton.setOnClickListener { reconnectDisconnected() }
+        pairButton.setOnClickListener { requestPairingCode() }
 
         if (preferences.apiUrl().isNotBlank() && preferences.token().isNotBlank()) {
             refreshStatus()
@@ -63,16 +67,19 @@ class MainActivity : Activity() {
     private fun bindViews() {
         apiUrlInput = findViewById(R.id.apiUrlInput)
         tokenInput = findViewById(R.id.tokenInput)
+        phoneInput = findViewById(R.id.phoneInput)
+        pairingCode = findViewById(R.id.pairingCode)
         connectionLabel = findViewById(R.id.connectionLabel)
-        telegramValue = findViewById(R.id.telegramValue)
-        usersValue = findViewById(R.id.usersValue)
+        serverValue = findViewById(R.id.serverValue)
+        modeValue = findViewById(R.id.modeValue)
         sessionsValue = findViewById(R.id.sessionsValue)
-        subBotsValue = findViewById(R.id.subBotsValue)
+        apiValue = findViewById(R.id.apiValue)
         uptimeValue = findViewById(R.id.uptimeValue)
         sessionList = findViewById(R.id.sessionList)
         saveButton = findViewById(R.id.saveButton)
         refreshButton = findViewById(R.id.refreshButton)
         reconnectButton = findViewById(R.id.reconnectButton)
+        pairButton = findViewById(R.id.pairButton)
     }
 
     private fun saveAndConnect() {
@@ -151,6 +158,42 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun requestPairingCode() {
+        val (url, token) = currentCredentials() ?: return
+        val number = phoneInput.text.toString().replace(Regex("[^0-9]"), "")
+        if (number.length !in 8..15) {
+            showError(getString(R.string.phone_invalid))
+            return
+        }
+
+        val requestBody = JSONObject().put("number", number).toString()
+        runRequest(
+            busyMessage = getString(R.string.requesting_pair_code),
+            call = {
+                ApiClient.request(
+                    url,
+                    token,
+                    "/api/v1/sessions/pair",
+                    "POST",
+                    requestBody
+                )
+            },
+            onSuccess = success@{ result ->
+                if (!result.successful) {
+                    showApiFailure(result)
+                    return@success
+                }
+
+                val payload = JSONObject(result.body).getJSONObject("result")
+                pairingCode.text = payload.getString("code")
+                pairingCode.visibility = View.VISIBLE
+                connectionLabel.text = getString(R.string.pair_code_ready)
+                connectionLabel.setTextColor(getColor(R.color.success))
+                mainHandler.postDelayed({ refreshStatus() }, 2_000)
+            }
+        )
+    }
+
     private fun runRequest(
         busyMessage: String,
         call: () -> ApiResult,
@@ -174,18 +217,17 @@ class MainActivity : Activity() {
     }
 
     private fun renderStatus(status: JSONObject) {
-        val telegram = status.getJSONObject("telegram")
+        val server = status.getJSONObject("server")
         val whatsapp = status.getJSONObject("whatsapp")
-        val username = telegram.optString("username").ifBlank { "unknown" }
 
-        telegramValue.text = if (telegram.optBoolean("connected")) "@$username" else getString(R.string.offline)
-        usersValue.text = status.optInt("users").toString()
+        serverValue.text = if (server.optBoolean("online")) getString(R.string.online) else getString(R.string.offline)
+        modeValue.text = status.optString("mode", "private")
         sessionsValue.text = getString(
             R.string.session_summary,
             whatsapp.optInt("online"),
             whatsapp.optInt("total")
         )
-        subBotsValue.text = status.optInt("deployedBots").toString()
+        apiValue.text = "v${status.optInt("apiVersion")}"
         uptimeValue.text = formatUptime(status.optLong("uptimeSeconds"))
 
         val sessions = whatsapp.optJSONArray("sessions")
@@ -215,6 +257,7 @@ class MainActivity : Activity() {
         saveButton.isEnabled = !busy
         refreshButton.isEnabled = !busy
         reconnectButton.isEnabled = !busy
+        pairButton.isEnabled = !busy
         findViewById<View>(R.id.progressBar).visibility = if (busy) View.VISIBLE else View.GONE
         if (message != null) {
             connectionLabel.text = message

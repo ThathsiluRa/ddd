@@ -5,14 +5,26 @@ import {
     CONTROL_API_HOST,
     CONTROL_API_PORT,
     CONTROL_API_TOKEN,
+    MAX_PAIR_PER_USER,
 } from "../setting/config.js";
-import { getAllPairs, getMode, getUsers } from "../database.js";
-import { deployedBots } from "./deploy.js";
-import { getClient, initWhatsappForNumber } from "./whatsapp.js";
+import {
+    addPairNumber,
+    getAllPairs,
+    getMode,
+    getUsers,
+    removePairNumber,
+} from "../database.js";
+import {
+    endWhatsappForNumber,
+    getClient,
+    initWhatsappForNumber,
+    waitForPairSuccess,
+} from "./whatsapp.js";
 import { log } from "./logger.js";
 import { createFixedWindowRateLimiter, isAuthorized } from "./control-api-security.js";
 
 const startedAt = Date.now();
+const ANDROID_CONTROL_UID = "android-control";
 let reconnectInProgress = false;
 let lastReconnectAt = 0;
 
@@ -28,6 +40,30 @@ function sendJson(res, statusCode, body, extraHeaders = {}) {
         ...extraHeaders,
     });
     res.end(payload);
+}
+
+async function readJsonBody(req, maximumBytes = 1024) {
+    const chunks = [];
+    let total = 0;
+
+    for await (const chunk of req) {
+        total += chunk.length;
+        if (total > maximumBytes) {
+            const error = new Error("Request body is too large.");
+            error.statusCode = 413;
+            throw error;
+        }
+        chunks.push(chunk);
+    }
+
+    if (total === 0) return {};
+    try {
+        return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    } catch {
+        const error = new Error("Request body must be valid JSON.");
+        error.statusCode = 400;
+        throw error;
+    }
 }
 
 function maskNumber(value) {
@@ -56,7 +92,7 @@ function sessionSnapshot() {
     };
 }
 
-async function reconnectDisconnected(bot) {
+async function reconnectDisconnected() {
     const pairs = getAllPairs();
     let attempted = 0;
     let skipped = 0;
@@ -72,10 +108,10 @@ async function reconnectDisconnected(bot) {
 
             attempted += 1;
             try {
-                await initWhatsappForNumber(bot, uid, number);
+                await initWhatsappForNumber(null, uid, number);
             } catch (error) {
                 failed += 1;
-                log.error(`Control API reconnect failed for masked number ${maskNumber(number)}: ${error.message}`);
+                log.error(`Control API reconnect failed for ${maskNumber(number)}: ${error.message}`);
             }
         }
     }
@@ -83,7 +119,54 @@ async function reconnectDisconnected(bot) {
     return { attempted, skipped, failed };
 }
 
-export async function startControlApi({ bot, botInfo }) {
+function numberAlreadySaved(number) {
+    return Object.values(getAllPairs()).some(
+        (numbers) => Array.isArray(numbers) && numbers.includes(number)
+    );
+}
+
+async function requestPairingCode(rawNumber) {
+    const number = String(rawNumber || "").replace(/\D/g, "");
+    if (!/^\d{8,15}$/.test(number)) {
+        const error = new Error("Enter a phone number with country code and 8 to 15 digits.");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (numberAlreadySaved(number)) {
+        const error = new Error("That WhatsApp number is already saved.");
+        error.statusCode = 409;
+        throw error;
+    }
+
+    const ownedNumbers = getAllPairs()[ANDROID_CONTROL_UID] || [];
+    if (ownedNumbers.length >= MAX_PAIR_PER_USER) {
+        const error = new Error(`The maximum of ${MAX_PAIR_PER_USER} Android-managed numbers has been reached.`);
+        error.statusCode = 409;
+        throw error;
+    }
+
+    try {
+        const socket = await initWhatsappForNumber(null, ANDROID_CONTROL_UID, number);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const code = await socket.requestPairingCode(number);
+        addPairNumber(ANDROID_CONTROL_UID, number);
+
+        waitForPairSuccess(ANDROID_CONTROL_UID, number, 120_000).catch(async (error) => {
+            log.warning(`Pairing expired for ${maskNumber(number)}: ${error.message}`);
+            removePairNumber(ANDROID_CONTROL_UID, number);
+            await endWhatsappForNumber(ANDROID_CONTROL_UID, number);
+        });
+
+        return { code, number: maskNumber(number), expiresInSeconds: 120 };
+    } catch (error) {
+        removePairNumber(ANDROID_CONTROL_UID, number);
+        await endWhatsappForNumber(ANDROID_CONTROL_UID, number);
+        throw error;
+    }
+}
+
+export async function startControlApi() {
     if (!CONTROL_API_ENABLED) {
         log.info("Android control API is disabled.");
         return null;
@@ -95,6 +178,7 @@ export async function startControlApi({ bot, botInfo }) {
     }
 
     const generalLimit = createFixedWindowRateLimiter({ maxRequests: 60, windowMs: 60_000 });
+    const pairingLimit = createFixedWindowRateLimiter({ maxRequests: 5, windowMs: 10 * 60_000 });
 
     const server = http.createServer(async (req, res) => {
         const requestId = randomUUID();
@@ -105,12 +189,9 @@ export async function startControlApi({ bot, botInfo }) {
             const rate = generalLimit(remoteAddress);
             if (!rate.allowed) {
                 req.resume();
-                return sendJson(
-                    res,
-                    429,
-                    { error: "Too many requests.", requestId },
-                    { "Retry-After": String(rate.retryAfterSeconds) }
-                );
+                return sendJson(res, 429, { error: "Too many requests.", requestId }, {
+                    "Retry-After": String(rate.retryAfterSeconds),
+                });
             }
 
             if (!isAuthorized(req.headers.authorization, CONTROL_API_TOKEN)) {
@@ -132,21 +213,42 @@ export async function startControlApi({ bot, botInfo }) {
             }
 
             if (req.method === "GET" && url.pathname === "/api/v1/status") {
-                const whatsapp = sessionSnapshot();
                 return sendJson(res, 200, {
                     service: "SHOCO Control API",
                     apiVersion: 1,
                     serverTime: new Date().toISOString(),
                     uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
-                    telegram: {
-                        connected: true,
-                        username: botInfo?.username || null,
+                    server: {
+                        online: true,
+                        runtime: process.version,
                     },
                     mode: getMode(),
-                    users: getUsers().length,
-                    deployedBots: deployedBots.size,
-                    whatsapp,
-                    capabilities: ["status.read", "sessions.reconnectDisconnected"],
+                    legacyUsers: getUsers().length,
+                    whatsapp: sessionSnapshot(),
+                    capabilities: [
+                        "status.read",
+                        "sessions.pair",
+                        "sessions.reconnectDisconnected",
+                    ],
+                    requestId,
+                });
+            }
+
+            if (req.method === "POST" && url.pathname === "/api/v1/sessions/pair") {
+                const pairRate = pairingLimit(remoteAddress);
+                if (!pairRate.allowed) {
+                    req.resume();
+                    return sendJson(res, 429, { error: "Too many pairing attempts.", requestId }, {
+                        "Retry-After": String(pairRate.retryAfterSeconds),
+                    });
+                }
+
+                const body = await readJsonBody(req);
+                const result = await requestPairingCode(body.number);
+                return sendJson(res, 201, {
+                    ok: true,
+                    message: "Enter this code in WhatsApp Linked Devices.",
+                    result,
                     requestId,
                 });
             }
@@ -163,18 +265,18 @@ export async function startControlApi({ bot, botInfo }) {
 
                 const cooldownRemaining = 30_000 - (Date.now() - lastReconnectAt);
                 if (cooldownRemaining > 0) {
-                    return sendJson(
-                        res,
-                        429,
-                        { error: "Reconnect is cooling down.", requestId },
-                        { "Retry-After": String(Math.ceil(cooldownRemaining / 1000)) }
-                    );
+                    return sendJson(res, 429, {
+                        error: "Reconnect is cooling down.",
+                        requestId,
+                    }, {
+                        "Retry-After": String(Math.ceil(cooldownRemaining / 1000)),
+                    });
                 }
 
                 reconnectInProgress = true;
                 lastReconnectAt = Date.now();
                 try {
-                    const result = await reconnectDisconnected(bot);
+                    const result = await reconnectDisconnected();
                     return sendJson(res, 202, {
                         ok: true,
                         message: "Reconnect requested for known disconnected sessions.",
@@ -189,9 +291,15 @@ export async function startControlApi({ bot, botInfo }) {
             req.resume();
             return sendJson(res, 404, { error: "Not found.", requestId });
         } catch (error) {
-            log.error(`Control API request ${requestId} failed: ${error.message}`);
+            const statusCode = Number(error.statusCode) || 500;
+            if (statusCode >= 500) {
+                log.error(`Control API request ${requestId} failed: ${error.message}`);
+            }
             if (!res.headersSent) {
-                return sendJson(res, 500, { error: "Internal server error.", requestId });
+                return sendJson(res, statusCode, {
+                    error: statusCode >= 500 ? "Internal server error." : error.message,
+                    requestId,
+                });
             }
             res.end();
         }

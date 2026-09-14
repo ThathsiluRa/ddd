@@ -7,10 +7,10 @@ on:
       - feature/android-control-app
     paths:
       - "v9/android-app/**"
+      - "v9/index.js"
       - "v9/path/control-api*.js"
-      - "v9/path/handlers.js"
-      - "v9/path/travas.js"
-      - "v9/test/*.test.js"
+      - "v9/path/whatsapp.js"
+      - "v9/test/control-api-security.test.js"
       - ".github/workflows/android-companion-apk.yml"
 
 permissions:
@@ -35,8 +35,12 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Test control API security helpers
-        run: node --test v9/test/control-api-security.test.js
+      - name: Validate Node service
+        run: |
+          node --check v9/index.js
+          node --check v9/path/control-api.js
+          node --check v9/path/whatsapp.js
+          node --test v9/test/control-api-security.test.js
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4

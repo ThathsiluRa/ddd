@@ -1,45 +1,25 @@
 {
-  "name": "shoco-telegram-whatsapp-bot",
-  "version": "1.1.0",
-  "description": "Telegram bot with per-user WhatsApp pairing and an authenticated companion API",
+  "name": "shoco-android-whatsapp-control",
+  "version": "2.0.0",
+  "description": "Android-controlled WhatsApp session service with an authenticated API",
   "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node --test"
+    "test": "node --test test/control-api-security.test.js"
   },
   "dependencies": {
-    "@grammyjs/runner": "^2.0.3",
     "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/baileys": "npm:baileys@7.0.0-rc14",
-    "acorn": "^8.17.0",
-    "archiver": "^7.0.1",
-    "axios": "^1.18.1",
     "baileys": "7.0.0-rc14",
-    "bytenode": "^1.6.0",
     "chalk": "^5.3.0",
-    "cheerio": "^1.2.0",
     "dotenv": "^16.4.5",
-    "eslint": "^10.7.0",
-    "ffmpeg-static": "^5.3.0",
-    "form-data": "^4.0.6",
-    "grammy": "^1.44.0",
-    "https-proxy-agent": "^9.1.0",
-    "javascript-obfuscator": "^5.5.0",
-    "jimp": "1.6.1",
-    "nodemailer": "^9.0.3",
-    "pino": "^9.4.0",
-    "prettier": "^3.9.5",
-    "sharp": "0.32.6",
-    "terser": "^5.49.0",
-    "webcrack": "^2.16.0",
-    "youtube-dl-exec": "^3.1.9"
+    "pino": "^9.4.0"
   },
-  "overrides": {
-    "sharp": "0.32.6",
-    "jimp": "1.6.1"
+  "allowScripts": {
+    "baileys": true,
+    "protobufjs": true
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.0.0 <23.0.0"
   }
 }

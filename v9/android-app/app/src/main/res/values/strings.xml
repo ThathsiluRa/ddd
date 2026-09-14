@@ -12,10 +12,10 @@
     <string name="save_connect">SAVE &amp; CONNECT</string>
     <string name="status">LIVE STATUS</string>
     <string name="not_connected">Not connected</string>
-    <string name="telegram">TELEGRAM</string>
-    <string name="users">USERS</string>
+    <string name="telegram">SERVER</string>
+    <string name="users">MODE</string>
     <string name="whatsapp">WHATSAPP</string>
-    <string name="sub_bots">SUB-BOTS</string>
+    <string name="sub_bots">API</string>
     <string name="uptime">UPTIME</string>
     <string name="unknown">—</string>
     <string name="sessions">SESSIONS</string>
@@ -31,6 +31,16 @@
     <string name="reconnect_started">Reconnect requested.</string>
     <string name="connection_failed">Could not connect to the server.</string>
     <string name="offline">Offline</string>
+    <string name="online">Online</string>
+    <string name="pair_whatsapp">PAIR WHATSAPP</string>
+    <string name="phone_number">PHONE NUMBER WITH COUNTRY CODE</string>
+    <string name="phone_hint">947XXXXXXXX</string>
+    <string name="get_pair_code">GET PAIRING CODE</string>
+    <string name="pairing_instructions">In WhatsApp: Linked devices → Link a device → Link with phone number. Enter the code shown below.</string>
+    <string name="phone_invalid">Enter 8 to 15 digits including the country code.</string>
+    <string name="requesting_pair_code">Requesting a WhatsApp pairing code…</string>
+    <string name="pair_code_ready">Pairing code ready. Enter it in WhatsApp within two minutes.</string>
+
     <string name="session_summary">%1$d / %2$d online</string>
     <string name="connected_at">Connected · server time %1$s UTC</string>
 </resources>

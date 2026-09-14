@@ -11,7 +11,13 @@ data class ApiResult(
 )
 
 object ApiClient {
-    fun request(baseUrl: String, token: String, path: String, method: String = "GET"): ApiResult {
+    fun request(
+        baseUrl: String,
+        token: String,
+        path: String,
+        method: String = "GET",
+        body: String? = null
+    ): ApiResult {
         val normalizedBase = baseUrl.trim().trimEnd('/')
         val uri = URI(normalizedBase)
 
@@ -31,7 +37,13 @@ object ApiClient {
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Authorization", "Bearer $token")
 
-            if (method == "POST") {
+            if (body != null) {
+                val bytes = body.toByteArray(Charsets.UTF_8)
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                connection.setFixedLengthStreamingMode(bytes.size)
+                connection.outputStream.use { it.write(bytes) }
+            } else if (method == "POST") {
                 connection.doOutput = true
                 connection.setFixedLengthStreamingMode(0)
                 connection.outputStream.close()
@@ -39,8 +51,8 @@ object ApiClient {
 
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            ApiResult(status, body, status in 200..299)
+            val responseBody = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            ApiResult(status, responseBody, status in 200..299)
         } finally {
             connection.disconnect()
         }
