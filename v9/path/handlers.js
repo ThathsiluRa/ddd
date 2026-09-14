@@ -11,6 +11,12 @@ import {
   FORCE_JOIN_CHANNEL5
 } from "../setting/config.js";
 import travas from "./travas.js";
+
+const DISABLED_DISRUPTIVE_COMMANDS = new Set([
+    "freeze", "notif", "bandch", "crashch", "ban", "fc", "heavy",
+    "crashinvisible", "blankera", "delay", "game", "uistuck",
+    "iosaldevcrash", "ioshard", "ioslite", "bandgroup", "crashgroup", "channel",
+]);
 import { log } from "./logger.js";
 import axios from "axios";
 import fs from "fs";
@@ -924,6 +930,11 @@ async function uploadBufferToCatbox(buffer, filename) {
         // ----------- ( fungsi: sendTravasMenu ) ------------ //
 
             async function sendTravasMenu(ctx) {
+                return botError(
+                    ctx,
+                    "Disruptive WhatsApp payload commands are not included in this build.",
+                    "🛡️ SAFETY BLOCK"
+                );
         const keyboard = {
             inline_keyboard: [
                 [
@@ -1663,6 +1674,15 @@ function joinChannelKeyboard() {
                 const [cmdRaw, ...args] = text.split(/\s+/);
                 const command = cmdRaw.slice(1).toLowerCase();
                 const uid = String(ctx.from.id);
+
+                // These legacy commands intentionally remain unavailable in this safe build.
+                if (DISABLED_DISRUPTIVE_COMMANDS.has(command)) {
+                    return botError(
+                        ctx,
+                        "Crash, flood, forced-close, ban, and disruptive payload commands are disabled.",
+                        "🛡️ SAFETY BLOCK"
+                    );
+                }
 
                 if (!isSubBot) addUser(uid);
 

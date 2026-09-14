@@ -8,7 +8,9 @@ on:
     paths:
       - "v9/android-app/**"
       - "v9/path/control-api*.js"
-      - "v9/test/control-api-security.test.js"
+      - "v9/path/handlers.js"
+      - "v9/path/travas.js"
+      - "v9/test/*.test.js"
       - ".github/workflows/android-companion-apk.yml"
 
 permissions:
