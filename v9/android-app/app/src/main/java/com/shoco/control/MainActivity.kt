@@ -1,252 +1,230 @@
 package com.shoco.control
 
 import android.app.Activity
-import android.app.DownloadManager
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.net.http.SslError
+import android.app.AlertDialog
 import android.os.Bundle
-import android.os.Environment
+import android.os.Handler
+import android.os.Looper
+import android.text.InputType
+import android.view.Gravity
 import android.view.View
-import android.webkit.CookieManager
-import android.webkit.DownloadListener
-import android.webkit.SslErrorHandler
-import android.webkit.URLUtil
-import android.webkit.ValueCallback
-import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
-import android.webkit.WebResourceRequest
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
+import org.json.JSONObject
+import java.util.concurrent.Executors
+
+data class MenuAction(val id: String, val title: String, val needsInput: Boolean, val multiline: Boolean, val hint: String)
 
 class MainActivity : Activity() {
-    private lateinit var webView: WebView
+    private lateinit var preferences: SecurePreferences
+    private lateinit var apiUrlInput: EditText
+    private lateinit var tokenInput: EditText
+    private lateinit var connectionText: TextView
+    private lateinit var summaryText: TextView
+    private lateinit var menuContainer: LinearLayout
     private lateinit var progressBar: ProgressBar
-    private lateinit var statusText: TextView
-    private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private val executor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
-        webView = findViewById(R.id.panelWebView)
-        progressBar = findViewById(R.id.pageProgress)
-        statusText = findViewById(R.id.statusText)
-        findViewById<Button>(R.id.reloadButton).setOnClickListener { webView.reload() }
-        findViewById<Button>(R.id.browserButton).setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PANEL_URL)))
-        }
-
-        configureWebView()
-
-        if (savedInstanceState == null) {
-            webView.loadUrl(PANEL_URL)
-        } else {
-            webView.restoreState(savedInstanceState)
-        }
+        preferences = SecurePreferences(this)
+        apiUrlInput = findViewById(R.id.apiUrlInput)
+        tokenInput = findViewById(R.id.tokenInput)
+        connectionText = findViewById(R.id.connectionText)
+        summaryText = findViewById(R.id.summaryText)
+        menuContainer = findViewById(R.id.menuContainer)
+        progressBar = findViewById(R.id.progressBar)
+        apiUrlInput.setText(preferences.apiUrl())
+        tokenInput.hint = if (preferences.token().isBlank()) getString(R.string.token_hint) else getString(R.string.token_saved)
+        findViewById<Button>(R.id.connectButton).setOnClickListener { saveAndConnect() }
+        if (preferences.apiUrl().isNotBlank() && preferences.token().isNotBlank()) loadDashboard()
     }
 
-    private fun configureWebView() {
-        CookieManager.getInstance().apply {
-            setAcceptCookie(true)
-            setAcceptThirdPartyCookies(webView, true)
+    private fun credentials(): Pair<String, String>? {
+        val url = apiUrlInput.text.toString().trim().trimEnd('/')
+        val entered = tokenInput.text.toString().trim()
+        val token = entered.ifBlank { preferences.token() }
+        if (!url.startsWith("https://", true)) {
+            showError(getString(R.string.https_required)); return null
         }
-
-        webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            databaseEnabled = true
-            allowFileAccess = false
-            allowContentAccess = true
-            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            setSupportMultipleWindows(false)
-            javaScriptCanOpenWindowsAutomatically = false
-            userAgentString = "$userAgentString SHOCO-Panel-App/1.0"
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                safeBrowsingEnabled = true
-            }
+        if (token.length < 32) {
+            showError(getString(R.string.token_required)); return null
         }
+        return url to token
+    }
 
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                return handleNavigation(request.url)
-            }
+    private fun saveAndConnect() {
+        val pair = credentials() ?: return
+        preferences.saveApiUrl(pair.first)
+        val entered = tokenInput.text.toString().trim()
+        if (entered.isNotBlank()) {
+            preferences.saveToken(entered)
+            tokenInput.text.clear()
+            tokenInput.hint = getString(R.string.token_saved)
+        }
+        loadDashboard()
+    }
 
-            @Suppress("DEPRECATION")
-            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                return handleNavigation(Uri.parse(url))
-            }
-
-            override fun onPageFinished(view: WebView, url: String) {
-                statusText.text = getString(R.string.secure_panel)
-                CookieManager.getInstance().flush()
-            }
-
-            override fun onReceivedSslError(
-                view: WebView,
-                handler: SslErrorHandler,
-                error: SslError
-            ) {
-                handler.cancel()
-                statusText.text = getString(R.string.certificate_error)
-                Toast.makeText(
-                    this@MainActivity,
-                    R.string.certificate_error,
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-
-            override fun onReceivedError(
-                view: WebView,
-                request: WebResourceRequest,
-                error: WebResourceError
-            ) {
-                if (request.isForMainFrame) {
-                    statusText.text = getString(R.string.connection_error)
+    private fun loadDashboard() {
+        val (url, token) = credentials() ?: return
+        setBusy(true)
+        executor.execute {
+            try {
+                val status = ApiClient.request(url, token, "/api/v1/status")
+                val menu = ApiClient.request(url, token, "/api/v1/menu")
+                mainHandler.post {
+                    setBusy(false)
+                    if (!status.successful) return@post showApiError(status)
+                    if (!menu.successful) return@post showApiError(menu)
+                    renderStatus(JSONObject(status.body))
+                    renderMenu(JSONObject(menu.body))
+                    connectionText.text = getString(R.string.connected)
+                    connectionText.setTextColor(getColor(R.color.success))
                 }
+            } catch (error: Exception) {
+                mainHandler.post { setBusy(false); showError(error.message ?: getString(R.string.connection_failed)) }
             }
         }
+    }
 
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onProgressChanged(view: WebView, newProgress: Int) {
-                progressBar.progress = newProgress
-                progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
-                if (newProgress < 100) {
-                    statusText.text = getString(R.string.loading)
+    private fun renderStatus(data: JSONObject) {
+        val wa = data.getJSONObject("whatsapp")
+        summaryText.text = getString(R.string.status_summary, wa.optInt("online"), wa.optInt("total"), formatUptime(data.optLong("uptimeSeconds")))
+    }
+
+    private fun renderMenu(data: JSONObject) {
+        menuContainer.removeAllViews()
+        val categories = data.getJSONArray("categories")
+        for (categoryIndex in 0 until categories.length()) {
+            val category = categories.getJSONObject(categoryIndex)
+            menuContainer.addView(TextView(this).apply {
+                text = category.getString("title").uppercase()
+                setTextColor(getColor(R.color.text_secondary))
+                textSize = 12f
+                letterSpacing = 0.12f
+                setPadding(0, dp(22), 0, dp(9))
+            })
+            val items = category.getJSONArray("items")
+            var row: LinearLayout? = null
+            for (index in 0 until items.length()) {
+                if (index % 2 == 0) {
+                    row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+                    menuContainer.addView(row)
                 }
-            }
-
-            override fun onShowFileChooser(
-                webView: WebView,
-                callback: ValueCallback<Array<Uri>>,
-                params: FileChooserParams
-            ): Boolean {
-                fileChooserCallback?.onReceiveValue(null)
-                fileChooserCallback = callback
-
-                return try {
-                    startActivityForResult(params.createIntent(), FILE_CHOOSER_REQUEST)
-                    true
-                } catch (_: Exception) {
-                    fileChooserCallback = null
-                    Toast.makeText(
-                        this@MainActivity,
-                        R.string.file_picker_unavailable,
-                        Toast.LENGTH_LONG
-                    ).show()
-                    false
+                val item = items.getJSONObject(index)
+                val action = MenuAction(item.getString("id"), item.getString("title"), item.optBoolean("input"), item.optBoolean("multiline"), item.optString("hint"))
+                val button = Button(this).apply {
+                    text = action.title
+                    isAllCaps = false
+                    textSize = 13f
+                    setTextColor(getColor(R.color.accent))
+                    background = getDrawable(R.drawable.button_secondary)
+                    setOnClickListener { selectAction(action) }
                 }
+                row?.addView(button, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
+                    val gap = dp(5); setMargins(gap, gap, gap, gap)
+                })
             }
         }
-
-        webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
-            startDownload(url, userAgent, contentDisposition, mimeType)
-        })
     }
 
-    private fun handleNavigation(uri: Uri): Boolean {
-        val isPanelPage = uri.scheme.equals("https", ignoreCase = true) &&
-            uri.host.equals(PANEL_HOST, ignoreCase = true)
-
-        if (isPanelPage) return false
-
-        return try {
-            startActivity(Intent(Intent.ACTION_VIEW, uri))
-            true
-        } catch (_: Exception) {
-            Toast.makeText(this, R.string.link_unavailable, Toast.LENGTH_SHORT).show()
-            true
+    private fun selectAction(action: MenuAction) {
+        when (action.id) {
+            "refresh" -> loadDashboard()
+            "reconnect" -> executePost(action.title, "/api/v1/actions/reconnect-disconnected", null, false)
+            else -> if (action.needsInput) showInputDialog(action) else runTool(action, "")
         }
     }
 
-    private fun startDownload(
-        url: String,
-        userAgent: String?,
-        contentDisposition: String?,
-        mimeType: String?
-    ) {
-        val uri = Uri.parse(url)
-        if (!uri.scheme.equals("https", ignoreCase = true) ||
-            !uri.host.equals(PANEL_HOST, ignoreCase = true)
-        ) {
-            Toast.makeText(this, R.string.download_blocked, Toast.LENGTH_LONG).show()
-            return
+    private fun showInputDialog(action: MenuAction) {
+        val input = EditText(this).apply {
+            hint = action.hint
+            setTextColor(getColor(R.color.text_primary))
+            setHintTextColor(getColor(R.color.text_secondary))
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            inputType = if (action.id == "pair") InputType.TYPE_CLASS_PHONE else
+                InputType.TYPE_CLASS_TEXT or (if (action.multiline) InputType.TYPE_TEXT_FLAG_MULTI_LINE else 0)
+            minLines = if (action.multiline) 8 else 1
+            maxLines = if (action.multiline) 16 else 1
         }
+        val wrapper = LinearLayout(this).apply {
+            setPadding(dp(18), dp(4), dp(18), 0)
+            addView(input, LinearLayout.LayoutParams(-1, -2))
+        }
+        AlertDialog.Builder(this).setTitle(action.title).setView(wrapper)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.run) { _, _ ->
+                if (action.id == "pair") requestPair(input.text.toString()) else runTool(action, input.text.toString())
+            }.show()
+    }
 
-        try {
-            val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
-            val request = DownloadManager.Request(uri)
-                .setTitle(fileName)
-                .setMimeType(mimeType)
-                .setNotificationVisibility(
-                    DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
-                )
-                .setDestinationInExternalFilesDir(
-                    this,
-                    Environment.DIRECTORY_DOWNLOADS,
-                    fileName
-                )
+    private fun requestPair(number: String) {
+        executePost(getString(R.string.pairing_code), "/api/v1/sessions/pair", JSONObject().put("number", number).toString(), true)
+    }
 
-            CookieManager.getInstance().getCookie(url)?.let {
-                request.addRequestHeader("Cookie", it)
+    private fun runTool(action: MenuAction, input: String) {
+        val body = JSONObject().put("action", action.id).put("input", input).toString()
+        executePost(action.title, "/api/v1/tools/run", body, false)
+    }
+
+    private fun executePost(title: String, path: String, body: String?, pairing: Boolean) {
+        val (url, token) = credentials() ?: return
+        setBusy(true)
+        executor.execute {
+            try {
+                val result = ApiClient.request(url, token, path, "POST", body)
+                mainHandler.post {
+                    setBusy(false)
+                    if (!result.successful) return@post showApiError(result)
+                    val json = JSONObject(result.body)
+                    val output = if (pairing) {
+                        getString(R.string.pair_result, json.getJSONObject("result").getString("code"))
+                    } else json.optString("output").ifBlank { json.optString("message", getString(R.string.done)) }
+                    showResult(title, output)
+                    loadDashboard()
+                }
+            } catch (error: Exception) {
+                mainHandler.post { setBusy(false); showError(error.message ?: getString(R.string.connection_failed)) }
             }
-            if (!userAgent.isNullOrBlank()) {
-                request.addRequestHeader("User-Agent", userAgent)
-            }
-
-            val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            manager.enqueue(request)
-            Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show()
-        } catch (_: Exception) {
-            Toast.makeText(this, R.string.download_failed, Toast.LENGTH_LONG).show()
         }
     }
 
-    @Deprecated("Deprecated by Android; retained for WebView file chooser compatibility")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode == FILE_CHOOSER_REQUEST) {
-            val result = WebChromeClient.FileChooserParams.parseResult(resultCode, data)
-            fileChooserCallback?.onReceiveValue(result)
-            fileChooserCallback = null
-            return
+    private fun showResult(title: String, output: String) {
+        val textView = TextView(this).apply {
+            text = output; setTextColor(getColor(R.color.text_primary)); textSize = 14f
+            setTextIsSelectable(true); setPadding(dp(20), dp(12), dp(20), dp(12))
         }
-        super.onActivityResult(requestCode, resultCode, data)
+        AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply { addView(textView) })
+            .setPositiveButton(R.string.close, null).show()
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        webView.saveState(outState)
-        super.onSaveInstanceState(outState)
+    private fun showApiError(result: ApiResult) {
+        val message = try { JSONObject(result.body).optString("error") } catch (_: Exception) { "" }
+        showError(message.ifBlank { "Server returned HTTP ${result.statusCode}." })
     }
 
-    @Deprecated("Android back callback is unnecessary for this minimum SDK")
-    override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
-        }
+    private fun setBusy(busy: Boolean) {
+        progressBar.visibility = if (busy) View.VISIBLE else View.GONE
+        findViewById<Button>(R.id.connectButton).isEnabled = !busy
     }
 
-    override fun onDestroy() {
-        webView.apply {
-            stopLoading()
-            webChromeClient = null
-            clearHistory()
-            removeAllViews()
-            destroy()
-        }
-        super.onDestroy()
+    private fun showError(message: String) {
+        connectionText.text = message
+        connectionText.setTextColor(getColor(R.color.danger))
     }
 
-    private companion object {
-        const val PANEL_HOST = "panel.srilankangrill.online"
-        const val PANEL_URL = "https://panel.srilankangrill.online"
-        const val FILE_CHOOSER_REQUEST = 7001
+    private fun formatUptime(seconds: Long): String {
+        val hours = seconds / 3600
+        val minutes = (seconds % 3600) / 60
+        return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
     }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+    override fun onDestroy() { executor.shutdownNow(); super.onDestroy() }
 }

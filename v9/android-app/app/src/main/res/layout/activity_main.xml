@@ -1,84 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/background"
-    android:orientation="vertical">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:background="@color/surface"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingLeft="14dp"
-        android:paddingRight="8dp">
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:letterSpacing="0.12"
-                android:text="@string/app_name"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/statusText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="@string/loading"
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp" />
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/background" android:fillViewport="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="20dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:letterSpacing="0.16" android:text="@string/eyebrow"
+            android:textColor="@color/accent" android:textSize="11sp" android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="6dp" android:text="@string/app_name"
+            android:textColor="@color/text_primary" android:textSize="32sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:text="@string/subtitle"
+            android:textColor="@color/text_secondary" android:textSize="14sp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="22dp" android:background="@drawable/panel"
+            android:orientation="vertical" android:padding="16dp">
+            <EditText android:id="@+id/apiUrlInput" android:layout_width="match_parent"
+                android:layout_height="48dp" android:background="@drawable/input_background"
+                android:hint="@string/url_hint" android:inputType="textUri" android:maxLines="1"
+                android:textColor="@color/text_primary" android:textColorHint="@color/text_secondary" />
+            <EditText android:id="@+id/tokenInput" android:layout_width="match_parent"
+                android:layout_height="48dp" android:layout_marginTop="10dp"
+                android:background="@drawable/input_background" android:inputType="textPassword"
+                android:maxLines="1" android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_secondary" />
+            <Button android:id="@+id/connectButton" android:layout_width="match_parent"
+                android:layout_height="50dp" android:layout_marginTop="12dp"
+                android:background="@drawable/button_primary" android:text="@string/save_connect"
+                android:textColor="@color/background" android:textStyle="bold" />
         </LinearLayout>
-
-        <Button
-            android:id="@+id/browserButton"
-            android:layout_width="wrap_content"
-            android:layout_height="42dp"
-            android:background="@drawable/button_secondary"
-            android:minWidth="0dp"
-            android:paddingLeft="12dp"
-            android:paddingRight="12dp"
-            android:text="@string/browser"
-            android:textColor="@color/accent"
-            android:textSize="11sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/reloadButton"
-            android:layout_width="wrap_content"
-            android:layout_height="42dp"
-            android:layout_marginLeft="8dp"
-            android:background="@drawable/button_primary"
-            android:minWidth="0dp"
-            android:paddingLeft="12dp"
-            android:paddingRight="12dp"
-            android:text="@string/reload"
-            android:textColor="@color/background"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+        <ProgressBar android:id="@+id/progressBar" style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent" android:layout_height="3dp"
+            android:layout_marginTop="12dp" android:indeterminate="true"
+            android:indeterminateTint="@color/accent" android:visibility="gone" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="14dp" android:background="@drawable/panel"
+            android:orientation="vertical" android:padding="16dp">
+            <TextView android:id="@+id/connectionText" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:text="@string/not_connected"
+                android:textColor="@color/text_secondary" android:textSize="13sp" />
+            <TextView android:id="@+id/summaryText" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="8dp"
+                android:text="@string/no_status" android:textColor="@color/text_primary"
+                android:textSize="18sp" android:textStyle="bold" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/menuContainer" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="22dp" android:gravity="center" android:text="@string/safety"
+            android:textColor="@color/text_secondary" android:textSize="11sp" />
     </LinearLayout>
-
-    <ProgressBar
-        android:id="@+id/pageProgress"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="3dp"
-        android:max="100"
-        android:progressTint="@color/accent"
-        android:visibility="visible" />
-
-    <WebView
-        android:id="@+id/panelWebView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-</LinearLayout>
+</ScrollView>

@@ -1,14 +1,21 @@
 <resources>
-    <string name="app_name">PTERODACTYL</string>
-    <string name="loading">Loading secure panel…</string>
-    <string name="secure_panel">Secure panel connection</string>
-    <string name="reload">RELOAD</string>
-    <string name="browser">BROWSER</string>
-    <string name="certificate_error">The panel certificate could not be verified.</string>
-    <string name="connection_error">Could not load the panel. Check your connection.</string>
-    <string name="file_picker_unavailable">No file picker is available on this device.</string>
-    <string name="link_unavailable">No app can open this link.</string>
-    <string name="download_blocked">Downloads are allowed only from the panel domain.</string>
-    <string name="download_started">Download started.</string>
-    <string name="download_failed">The download could not be started.</string>
+    <string name="app_name">NAVIYA CONTROL</string>
+    <string name="eyebrow">PRIVATE BOT MENU</string>
+    <string name="subtitle">The Telegram command menu, rebuilt as safe native controls.</string>
+    <string name="url_hint">https://bot.example.com</string>
+    <string name="token_hint">Access token</string>
+    <string name="token_saved">Token saved securely — leave blank to keep</string>
+    <string name="save_connect">SAVE &amp; CONNECT</string>
+    <string name="not_connected">Not connected</string>
+    <string name="connected">Connected securely</string>
+    <string name="no_status">No server status</string>
+    <string name="status_summary">WhatsApp %1$d/%2$d online · uptime %3$s</string>
+    <string name="https_required">Enter the HTTPS address of the bot API.</string>
+    <string name="token_required">Enter an access token containing at least 32 characters.</string>
+    <string name="connection_failed">Could not connect to the bot server.</string>
+    <string name="cancel">CANCEL</string><string name="run">RUN</string>
+    <string name="close">CLOSE</string><string name="done">Action completed.</string>
+    <string name="pairing_code">WhatsApp pairing code</string>
+    <string name="pair_result">Enter this code in WhatsApp Linked Devices within two minutes:\n\n%1$s</string>
+    <string name="safety">Crash, flood, ban, broadcast and disruptive payload actions are not included.</string>
 </resources>
