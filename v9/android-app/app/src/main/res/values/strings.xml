@@ -17,5 +17,9 @@
     <string name="close">CLOSE</string><string name="done">Action completed.</string>
     <string name="pairing_code">WhatsApp pairing code</string>
     <string name="pair_result">Enter this code in WhatsApp Linked Devices within two minutes:\n\n%1$s</string>
+    <string name="select_menu">Select menu</string>
+    <string name="back_to_menus">← Back to menus</string>
+    <string name="continue_action">CONTINUE</string>
+    <plurals name="control_count"><item quantity="one">%d control</item><item quantity="other">%d controls</item></plurals>
     <string name="safety">Crash, flood, ban, broadcast and disruptive payload actions are not included.</string>
 </resources>
