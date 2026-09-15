@@ -1,8 +1,9 @@
 import http from "http";
+import { readFile } from "fs/promises";
 import dns from "dns/promises";
 import net from "net";
 import tls from "tls";
-import { randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import {
     CONTROL_API_ENABLED,
     CONTROL_API_HOST,
@@ -71,6 +72,83 @@ const SAFE_MENU = [
         ],
     },
 ];
+
+const MENU_CONFIG_PATH = String(process.env.CONTROL_MENU_FILE || "./control-menu.json").trim();
+const SAFE_ACTION_IDS = new Set([
+    "refresh", "pair", "reconnect",
+    "quote", "weather", "shorten", "timestamp", "uuid", "secure_password",
+    "text_stats", "uppercase", "lowercase", "base64_encode", "base64_decode",
+    "url_encode", "url_decode", "sha256",
+    "whois", "dns", "reverse_dns", "ip_info", "ssl",
+    "validate_json", "format_json", "code_stats", "extract_functions",
+]);
+const INPUT_TYPES = new Set(["none", "text", "phone", "url", "domain", "ip", "json", "code"]);
+
+function limitedText(value, fallback, maximum) {
+    const text = String(value ?? "").trim();
+    return (text || fallback).slice(0, maximum);
+}
+
+function validateMenuConfig(raw) {
+    const sourceCategories = Array.isArray(raw?.categories) ? raw.categories : [];
+    const categories = [];
+
+    for (const sourceCategory of sourceCategories.slice(0, 20)) {
+        const items = [];
+        const sourceItems = Array.isArray(sourceCategory?.items) ? sourceCategory.items : [];
+        for (const sourceItem of sourceItems.slice(0, 40)) {
+            const action = limitedText(sourceItem?.action || sourceItem?.id, "", 64);
+            if (!SAFE_ACTION_IDS.has(action)) {
+                log.warning(`Ignoring non-allowlisted menu action: ${action || "(empty)"}`);
+                continue;
+            }
+            const input = sourceItem?.input === true;
+            const requestedType = limitedText(sourceItem?.inputType, input ? "text" : "none", 20);
+            items.push({
+                id: limitedText(sourceItem?.id, action, 64),
+                action,
+                title: limitedText(sourceItem?.title, action, 80),
+                description: limitedText(sourceItem?.description, "", 180),
+                input,
+                inputType: input && INPUT_TYPES.has(requestedType) ? requestedType : (input ? "text" : "none"),
+                multiline: input && sourceItem?.multiline === true,
+                hint: limitedText(sourceItem?.hint, input ? "Enter a value" : "", 160),
+                confirmation: limitedText(sourceItem?.confirmation, "", 200),
+            });
+        }
+        if (items.length) {
+            categories.push({
+                id: limitedText(sourceCategory?.id, `menu-${categories.length + 1}`, 64),
+                title: limitedText(sourceCategory?.title, "Menu", 80),
+                description: limitedText(sourceCategory?.description, "", 200),
+                items,
+            });
+        }
+    }
+
+    if (!categories.length) throw new Error("Menu configuration contains no safe actions.");
+    return {
+        version: 1,
+        app: {
+            title: limitedText(raw?.app?.title, "NAVIYA CONTROL", 60),
+            subtitle: limitedText(raw?.app?.subtitle, "Server-managed private bot controls", 120),
+        },
+        categories,
+    };
+}
+
+async function loadMenuConfig() {
+    try {
+        const raw = JSON.parse(await readFile(MENU_CONFIG_PATH, "utf8"));
+        return validateMenuConfig(raw);
+    } catch (error) {
+        log.warning(`Using built-in control menu because ${MENU_CONFIG_PATH} could not be loaded: ${error.message}`);
+        return validateMenuConfig({
+            app: { title: "NAVIYA CONTROL", subtitle: "Server-managed private bot controls" },
+            categories: SAFE_MENU,
+        });
+    }
+}
 
 const QUOTES = [
     "Small progress is still progress.",
@@ -225,6 +303,53 @@ async function fetchJson(url) {
 }
 
 async function runSafeTool(action, rawInput) {
+    if (action === "timestamp") {
+        const now = new Date();
+        return `UTC: ${now.toISOString()}\nUnix seconds: ${Math.floor(now.getTime() / 1000)}`;
+    }
+
+    if (action === "uuid") return randomUUID();
+
+    if (action === "secure_password") {
+        return randomBytes(18).toString("base64url");
+    }
+
+    if (action === "text_stats") {
+        const input = requireInput(rawInput);
+        const lines = input.split(/\r?\n/);
+        return [
+            `Characters: ${input.length}`,
+            `Characters without spaces: ${input.replace(/\s/g, "").length}`,
+            `Words: ${(input.match(/\b[\p{L}\p{N}_'-]+\b/gu) || []).length}`,
+            `Lines: ${lines.length}`,
+        ].join("\n");
+    }
+
+    if (action === "uppercase") return requireInput(rawInput).toUpperCase();
+    if (action === "lowercase") return requireInput(rawInput).toLowerCase();
+    if (action === "base64_encode") return Buffer.from(requireInput(rawInput), "utf8").toString("base64");
+
+    if (action === "base64_decode") {
+        const input = requireInput(rawInput).replace(/\s/g, "");
+        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(input) || input.length % 4 === 1) {
+            throw httpError("Enter valid Base64 text.");
+        }
+        return Buffer.from(input, "base64").toString("utf8");
+    }
+
+    if (action === "url_encode") return encodeURIComponent(requireInput(rawInput));
+    if (action === "url_decode") {
+        try {
+            return decodeURIComponent(requireInput(rawInput));
+        } catch {
+            throw httpError("Enter valid URL-encoded text.");
+        }
+    }
+
+    if (action === "sha256") {
+        return createHash("sha256").update(requireInput(rawInput), "utf8").digest("hex");
+    }
+
     if (action === "quote") {
         return QUOTES[Math.floor(Math.random() * QUOTES.length)];
     }
@@ -271,6 +396,13 @@ async function runSafeTool(action, rawInput) {
         const host = cleanHost(rawInput);
         const records = await dns.resolveAny(host);
         return records.length ? JSON.stringify(records, null, 2) : "No DNS records found.";
+    }
+
+    if (action === "reverse_dns") {
+        const ip = requireInput(rawInput, 64);
+        if (!net.isIP(ip)) throw httpError("Enter a valid IPv4 or IPv6 address.");
+        const names = await dns.reverse(ip);
+        return names.length ? names.join("\n") : "No reverse DNS names found.";
     }
 
     if (action === "ip_info") {
@@ -380,6 +512,43 @@ async function runSafeTool(action, rawInput) {
     throw httpError("That action is not available.", 404);
 }
 
+async function executeConfiguredAction(action, input) {
+    if (!SAFE_ACTION_IDS.has(action)) throw httpError("That action is not available.", 404);
+
+    if (action === "refresh") {
+        return { output: "Status refreshed.", refreshStatus: true };
+    }
+
+    if (action === "pair") {
+        const result = await requestPairingCode(input);
+        return {
+            output: `Pairing code: ${result.code}\n\nEnter it in WhatsApp Linked Devices within two minutes.`,
+            result,
+            refreshStatus: true,
+        };
+    }
+
+    if (action === "reconnect") {
+        if (reconnectInProgress) throw httpError("A reconnect request is already running.", 409);
+        const cooldownRemaining = 30_000 - (Date.now() - lastReconnectAt);
+        if (cooldownRemaining > 0) throw httpError("Reconnect is cooling down.", 429);
+        reconnectInProgress = true;
+        lastReconnectAt = Date.now();
+        try {
+            const result = await reconnectDisconnected();
+            return {
+                output: `Reconnect requested. Attempted: ${result.attempted}, skipped: ${result.skipped}, failed: ${result.failed}.`,
+                result,
+                refreshStatus: true,
+            };
+        } finally {
+            reconnectInProgress = false;
+        }
+    }
+
+    return { output: await runSafeTool(action, input), refreshStatus: false };
+}
+
 export async function startControlApi() {
     if (!CONTROL_API_ENABLED) {
         log.info("Android control API is disabled.");
@@ -426,7 +595,8 @@ export async function startControlApi() {
             }
 
             if (req.method === "GET" && url.pathname === "/api/v1/menu") {
-                return sendJson(res, 200, { categories: SAFE_MENU, requestId });
+                const menu = await loadMenuConfig();
+                return sendJson(res, 200, { ...menu, requestId });
             }
 
             if (req.method === "GET" && url.pathname === "/api/v1/status") {
@@ -441,6 +611,28 @@ export async function startControlApi() {
                     whatsapp: sessionSnapshot(),
                     requestId,
                 });
+            }
+
+            if (req.method === "POST" && url.pathname === "/api/v1/actions/run") {
+                const actionRate = toolLimit(remoteAddress);
+                if (!actionRate.allowed) {
+                    req.resume();
+                    return sendJson(res, 429, { error: "Too many action requests.", requestId }, {
+                        "Retry-After": String(actionRate.retryAfterSeconds),
+                    });
+                }
+                const body = await readJsonBody(req);
+                const action = requireInput(body.action, 64);
+                if (action === "pair") {
+                    const pairRate = pairingLimit(remoteAddress);
+                    if (!pairRate.allowed) {
+                        return sendJson(res, 429, { error: "Too many pairing attempts.", requestId }, {
+                            "Retry-After": String(pairRate.retryAfterSeconds),
+                        });
+                    }
+                }
+                const result = await executeConfiguredAction(action, body.input);
+                return sendJson(res, 200, { ok: true, action, ...result, requestId });
             }
 
             if (req.method === "POST" && url.pathname === "/api/v1/sessions/pair") {
