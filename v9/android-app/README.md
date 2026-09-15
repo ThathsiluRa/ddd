@@ -1,30 +1,51 @@
 # NAVIYA Control Android app
 
-This is a native Android replacement for the former Telegram command menu. It
-loads an authenticated menu catalog from the Node server and turns each allowed
-action into a real Android button. It is not a Pterodactyl WebView.
+NAVIYA Control is a native, server-driven replacement for the former Telegram
+command menu. It is not a WebView and it does not keep a fixed command list in
+the APK.
 
-## Working menu
+## Server-driven controls
 
-- WhatsApp: refresh status, pair a number, reconnect known offline sessions.
-- Tools: random quote, weather, and safe URL shortening.
-- Public OSINT: RDAP domain registration, DNS records, IP information, and TLS
-  certificate inspection.
-- Code tools: JSON validation/formatting, code statistics, and function listing.
+On every refresh the app downloads `GET /api/v1/menu`. The response controls:
 
-Each enabled button calls one explicit allowlisted API action and displays its
-result in a selectable Android dialog. No arbitrary command string is executed.
+- the app title and subtitle;
+- category names, descriptions, order, and visibility;
+- button names, descriptions, and order;
+- whether input is required;
+- input type, hint, and multiline behavior;
+- optional confirmation text;
+- the allowlisted server action ID.
+
+Select a category in the app to open its controls. All configurable actions use
+the authenticated `POST /api/v1/actions/run` endpoint.
+
+Edit `/home/container/control-menu.json` in Pterodactyl, save it, and refresh
+the app. Menu-only edits do not need an APK rebuild or server restart.
+
+Unknown action IDs are omitted. Adding new behavior still requires a reviewed,
+allowlisted handler in `path/control-api.js` and a Node restart. JSON cannot
+inject shell commands or JavaScript.
+
+## Included safe controls
+
+- WhatsApp status, pairing, and reconnect.
+- Weather, quotes, URL shortening, timestamps, UUIDs, and password generation.
+- Text statistics, case conversion, Base64, URL encoding, and SHA-256.
+- Public RDAP, DNS, reverse DNS, IP, and TLS inspection.
+- JSON validation/formatting and non-executing code inspection.
 
 Crash, freeze, flood, forced-close, ban, broadcast, disruptive WhatsApp payload,
-website-cloning, and arbitrary-code execution actions are not included.
+website-cloning, arbitrary-command, and arbitrary-code execution actions are
+not included.
 
-## Server deployment
+## Deployment
 
-Update `path/control-api.js` on Pterodactyl from this branch and restart the
-Node service. Keep the existing `.env` token and API port configuration.
+Copy both `control-menu.json` and `path/control-api.js` from this branch into
+the Pterodactyl server, keeping the same relative paths, then restart Node.
 
-The Android app requires the API to be served from a valid HTTPS hostname. Enter
-that HTTPS origin and the exact `CONTROL_API_TOKEN`, then tap **Save & Connect**.
+The production API URL is preconfigured as
+`https://bot.srilankangrill.online`. Enter `CONTROL_API_TOKEN` once; Android
+stores it using encrypted preferences and reconnects automatically.
 
 ## APK
 
