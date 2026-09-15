@@ -20,6 +20,10 @@ import java.util.concurrent.Executors
 data class MenuAction(val id: String, val title: String, val needsInput: Boolean, val multiline: Boolean, val hint: String)
 
 class MainActivity : Activity() {
+    companion object {
+        private const val DEFAULT_API_URL = "https://bot.srilankangrill.online"
+    }
+
     private lateinit var preferences: SecurePreferences
     private lateinit var apiUrlInput: EditText
     private lateinit var tokenInput: EditText
@@ -40,10 +44,11 @@ class MainActivity : Activity() {
         summaryText = findViewById(R.id.summaryText)
         menuContainer = findViewById(R.id.menuContainer)
         progressBar = findViewById(R.id.progressBar)
-        apiUrlInput.setText(preferences.apiUrl())
+        val savedApiUrl = preferences.apiUrl().ifBlank { DEFAULT_API_URL }
+        apiUrlInput.setText(savedApiUrl)
         tokenInput.hint = if (preferences.token().isBlank()) getString(R.string.token_hint) else getString(R.string.token_saved)
         findViewById<Button>(R.id.connectButton).setOnClickListener { saveAndConnect() }
-        if (preferences.apiUrl().isNotBlank() && preferences.token().isNotBlank()) loadDashboard()
+        if (preferences.token().isNotBlank()) loadDashboard()
     }
 
     private fun credentials(): Pair<String, String>? {
