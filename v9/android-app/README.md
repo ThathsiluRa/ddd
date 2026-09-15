@@ -1,28 +1,33 @@
-# Pterodactyl Panel Android wrapper
+# NAVIYA Control Android app
 
-The Android app is a focused WebView wrapper for:
+This is a native Android replacement for the former Telegram command menu. It
+loads an authenticated menu catalog from the Node server and turns each allowed
+action into a real Android button. It is not a Pterodactyl WebView.
 
-```text
-https://panel.srilankangrill.online
-```
+## Working menu
 
-It uses the panel's normal login page and cookies. No API URL or bot-control token
-is required inside the app.
+- WhatsApp: refresh status, pair a number, reconnect known offline sessions.
+- Tools: random quote, weather, and safe URL shortening.
+- Public OSINT: RDAP domain registration, DNS records, IP information, and TLS
+  certificate inspection.
+- Code tools: JSON validation/formatting, code statistics, and function listing.
 
-## Included behavior
+Each enabled button calls one explicit allowlisted API action and displays its
+result in a selectable Android dialog. No arbitrary command string is executed.
 
-- JavaScript and DOM storage required by Pterodactyl;
-- persistent login cookies;
-- file chooser support for panel uploads;
-- authenticated panel downloads through Android Download Manager;
-- back navigation, reload, loading progress, and browser fallback;
-- HTTPS-only networking and fail-closed certificate validation;
-- external domains open in the device browser.
+Crash, freeze, flood, forced-close, ban, broadcast, disruptive WhatsApp payload,
+website-cloning, and arbitrary-code execution actions are not included.
 
-## Install
+## Server deployment
 
-Open the repository's **Android companion APK** workflow, download the newest
-`shoco-control-debug-apk` artifact, extract it, and install `app-debug.apk`.
+Update `path/control-api.js` on Pterodactyl from this branch and restart the
+Node service. Keep the existing `.env` token and API port configuration.
 
-Because GitHub debug builds may use a different signing key, uninstall the older
-SHOCO Control APK before installing this WebView build.
+The Android app requires the API to be served from a valid HTTPS hostname. Enter
+that HTTPS origin and the exact `CONTROL_API_TOKEN`, then tap **Save & Connect**.
+
+## APK
+
+Download the newest `shoco-control-debug-apk` artifact from the **Android
+companion APK** workflow. Uninstall an older debug APK first if Android reports
+a signing conflict.
