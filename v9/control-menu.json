@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "app": {
+    "title": "NAVIYA CONTROL",
+    "subtitle": "Server-managed private bot controls"
+  },
+  "categories": [
+    {
+      "id": "whatsapp",
+      "title": "WhatsApp",
+      "description": "Pair and manage your saved WhatsApp sessions.",
+      "items": [
+        { "id": "refresh", "action": "refresh", "title": "Refresh status", "description": "Reload server and session status.", "input": false },
+        { "id": "pair", "action": "pair", "title": "Pair WhatsApp", "description": "Create a Linked Devices pairing code.", "input": true, "inputType": "phone", "hint": "Phone with country code, e.g. 9477...", "confirmation": "Create a pairing code for this number?" },
+        { "id": "reconnect", "action": "reconnect", "title": "Reconnect offline", "description": "Reconnect known sessions that are offline.", "input": false, "confirmation": "Reconnect all known offline sessions?" }
+      ]
+    },
+    {
+      "id": "utilities",
+      "title": "Utilities",
+      "description": "Everyday network and generator tools.",
+      "items": [
+        { "id": "quote", "action": "quote", "title": "Random quote", "input": false },
+        { "id": "weather", "action": "weather", "title": "Weather", "input": true, "inputType": "text", "hint": "City name" },
+        { "id": "shorten", "action": "shorten", "title": "Shorten link", "input": true, "inputType": "url", "hint": "https://example.com/long-link" },
+        { "id": "timestamp", "action": "timestamp", "title": "Current time", "input": false },
+        { "id": "uuid", "action": "uuid", "title": "Generate UUID", "input": false },
+        { "id": "secure_password", "action": "secure_password", "title": "Secure password", "input": false }
+      ]
+    },
+    {
+      "id": "text",
+      "title": "Text tools",
+      "description": "Transform, encode and inspect text safely.",
+      "items": [
+        { "id": "text_stats", "action": "text_stats", "title": "Text statistics", "input": true, "inputType": "text", "multiline": true, "hint": "Paste text" },
+        { "id": "uppercase", "action": "uppercase", "title": "Uppercase", "input": true, "inputType": "text", "multiline": true, "hint": "Paste text" },
+        { "id": "lowercase", "action": "lowercase", "title": "Lowercase", "input": true, "inputType": "text", "multiline": true, "hint": "Paste text" },
+        { "id": "base64_encode", "action": "base64_encode", "title": "Base64 encode", "input": true, "inputType": "text", "multiline": true, "hint": "Paste text" },
+        { "id": "base64_decode", "action": "base64_decode", "title": "Base64 decode", "input": true, "inputType": "text", "multiline": true, "hint": "Paste Base64" },
+        { "id": "url_encode", "action": "url_encode", "title": "URL encode", "input": true, "inputType": "text", "multiline": true, "hint": "Paste text" },
+        { "id": "url_decode", "action": "url_decode", "title": "URL decode", "input": true, "inputType": "text", "multiline": true, "hint": "Paste encoded text" },
+        { "id": "sha256", "action": "sha256", "title": "SHA-256", "input": true, "inputType": "text", "multiline": true, "hint": "Paste text" }
+      ]
+    },
+    {
+      "id": "osint",
+      "title": "Public OSINT",
+      "description": "Inspect public domain, DNS, IP and certificate data.",
+      "items": [
+        { "id": "whois", "action": "whois", "title": "Domain registration", "input": true, "inputType": "domain", "hint": "example.com" },
+        { "id": "dns", "action": "dns", "title": "DNS records", "input": true, "inputType": "domain", "hint": "example.com" },
+        { "id": "reverse_dns", "action": "reverse_dns", "title": "Reverse DNS", "input": true, "inputType": "ip", "hint": "8.8.8.8" },
+        { "id": "ip_info", "action": "ip_info", "title": "IP information", "input": true, "inputType": "ip", "hint": "8.8.8.8" },
+        { "id": "ssl", "action": "ssl", "title": "SSL certificate", "input": true, "inputType": "domain", "hint": "example.com" }
+      ]
+    },
+    {
+      "id": "code",
+      "title": "Code tools",
+      "description": "Validate and inspect pasted code without executing it.",
+      "items": [
+        { "id": "validate_json", "action": "validate_json", "title": "Validate JSON", "input": true, "inputType": "json", "multiline": true, "hint": "Paste JSON" },
+        { "id": "format_json", "action": "format_json", "title": "Format JSON", "input": true, "inputType": "json", "multiline": true, "hint": "Paste JSON" },
+        { "id": "code_stats", "action": "code_stats", "title": "Code statistics", "input": true, "inputType": "code", "multiline": true, "hint": "Paste code" },
+        { "id": "extract_functions", "action": "extract_functions", "title": "List functions", "input": true, "inputType": "code", "multiline": true, "hint": "Paste JavaScript" }
+      ]
+    }
+  ]
+}
